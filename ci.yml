@@ -1,0 +1,114 @@
+# %%
+name: Fetch EEX NGP (15m)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *" # only runs from the DEFAULT branch's copy of this file
+  push:
+    branches:
+      - testing
+      - main
+    paths-ignore:
+      - "data/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ttf-ngp-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Fetch and append only new rows (with diagnostics)
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          URL='https://gasandregistry.eex.com/Gas/NGP/TTF_NGP_15_Mins.csv'
+          OUT='data/ttf_ngp_master.csv'
+          mkdir -p data
+          TMP="$(mktemp)"
+
+          echo "Downloading CSV from: $URL"
+          curl -fsSL --compressed -A 'Mozilla/5.0' -o "$TMP" "$URL"
+
+          # Normalize potential CRLF and detect ; or , as the separator
+          dos2unix "$TMP" 2>/dev/null || true
+          SEP=$(awk 'NR==1{print index($0,";")?";":","; exit}' "$TMP")
+          echo "Detected separator: '$SEP'"
+
+          if [ ! -f "$OUT" ]; then
+            mv "$TMP" "$OUT"
+            echo "First run: created $OUT with $(($(wc -l < "$OUT")-1)) data rows (excluding header)."
+            tail -n 3 "$OUT" || true
+            exit 0
+          fi
+
+          LAST_TS=$(awk -F'[;,]' 'END{print $1}' "$OUT" | tr -d '\r')
+          echo "Last timestamp in master: '$LAST_TS'"
+
+          NEW="$(mktemp)"
+          # Append only strictly newer rows (assumes lexicographically sortable timestamps)
+          awk -v FS='[;,]' -v last="$LAST_TS" 'NR==1{next} $1>last' "$TMP" > "$NEW" || true
+          NEW_COUNT=$(wc -l < "$NEW" | tr -d ' ' || true)
+          echo "New rows found: ${NEW_COUNT:-0}"
+
+          if [ "${NEW_COUNT:-0}" -gt 0 ]; then
+            cat "$NEW" >> "$OUT"
+            echo "Appended $NEW_COUNT rows to $OUT"
+          else
+            echo "No rows to append."
+          fi
+
+          rm -f "$TMP" "$NEW"
+
+          echo "--- tail OUT ---"
+          tail -n 3 "$OUT" || true
+
+      - name: Commit & push if changed (rebase + retry)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BRANCH="${GITHUB_REF_NAME:-$(git symbolic-ref --short HEAD)}"
+
+          # Ensure local branch tracks the remote tip
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH" || git checkout -B "$BRANCH"
+
+          if git status --porcelain -- data/ttf_ngp_master.csv | grep -q .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add data/ttf_ngp_master.csv
+            git commit -m "Update TTF NGP $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+            # Rebase to avoid non-fast-forward issues
+            git pull --rebase --autostash origin "$BRANCH" || true
+
+            # Try pushing; if a race happens, rebase and retry up to 3 times
+            for i in 1 2 3; do
+              if git push origin "$BRANCH"; then
+                echo "Pushed successfully."
+                exit 0
+              fi
+              echo "Push failed (attempt $i). Rebasing and retrying..."
+              git pull --rebase --autostash origin "$BRANCH" || true
+              sleep $((RANDOM % 5 + 1))
+            done
+
+            echo "Push still failing after retries."
+            exit 1
+          else
+            echo "No changes."
+          fi
