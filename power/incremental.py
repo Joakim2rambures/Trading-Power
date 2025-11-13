@@ -1,3 +1,5 @@
+# %%
+
 import os, pandas as pd
 from datetime import timedelta
 from smard.smard_fetch import smard_range
