@@ -1,0 +1,35 @@
+name: Backfill SMARD
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: ISO start (UTC)
+        required: true
+      end:
+        description: ISO end (UTC)
+        required: true
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: smard-backfill
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: "pip" }
+      - run: pip install -r requirements.txt
+      - name: Run backfill
+        env:
+          BUCKET_URL: ${{ secrets.BUCKET_URL }} # e.g., s3://bucket/parquet_root
+          FILTER_ID: ${{ secrets.FILTER_ID }}
+          REGION_CODE: DE
+          HWM_URL: ${{ secrets.HWM_URL }} # e.g., s3://bucket/state/high_watermark.json
+          START: ${{ github.event.inputs.start }}
+          END: ${{ github.event.inputs.end }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} # or R2/B2 keys
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+        run: python backfill.py

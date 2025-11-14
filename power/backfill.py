@@ -1,9 +1,9 @@
 # %%
 import os, pandas as pd
-from smard.smard_fetch import smard_range
-from smard.io_s3 import get_fs_and_url
-from smard.parquet_table import merge_write_partitions
-from smard.state import save_hwm
+from power.fetch_power.smard_fetch import smard_range
+from power.fetch_power.io_s3 import get_fs_and_url
+from power.fetch_power.parquet_convert import merge_write_partitions
+from power.fetch_power.state import save_hwm
 
 # env (set via workflow inputs/secrets)
 BUCKET_URL    = os.environ["BUCKET_URL"]      # e.g., s3://my-bucket/parquet_root

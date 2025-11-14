@@ -2,10 +2,10 @@
 
 import os, pandas as pd
 from datetime import timedelta
-from smard.smard_fetch import smard_range
-from smard.io_s3 import get_fs_and_url
-from smard.parquet_table import merge_write_partitions
-from smard.state import load_hwm, save_hwm, last_full_quarter
+from power.fetch_power.smard_fetch import smard_range
+from  power.fetch_power.io_s3 import get_fs_and_url
+from  power.fetch_power.parquet_convert import merge_write_partitions
+from  power.fetch_power.state import load_hwm, save_hwm, last_full_quarter
 
 BUCKET_URL  = os.environ["BUCKET_URL"]
 REGION_CODE = os.environ.get("REGION_CODE","DE")

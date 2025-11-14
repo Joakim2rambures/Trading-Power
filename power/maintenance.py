@@ -1,8 +1,8 @@
 # %%
 import os, pandas as pd
-from smard.io_s3 import get_fs_and_url, list_paths
-from smard.parquet_table import read_parquet_if_exists, to_parquet_bytes
-from smard.io_s3 import write_atomic
+from power.fetch_power.io_s3 import get_fs_and_url, list_paths
+from power.fetch_power.parquet_convert import read_parquet_if_exists, to_parquet_bytes
+from power.fetch_power.io_s3 import write_atomic
 
 BUCKET_URL  = os.environ["BUCKET_URL"]
 REGION_CODE = os.environ.get("REGION_CODE","DE")
