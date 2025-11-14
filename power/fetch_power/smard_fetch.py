@@ -1,0 +1,57 @@
+# %%
+import requests, pandas as pd, urllib3, bisect
+from datetime import datetime, timezone
+
+class FetchApi():
+
+    def __init__(self, filter_id: str, start_date:str, end_date: str):
+        self.filter_id = filter_id
+        self.start_date = start_date
+        self.end_date = end_date
+
+
+    
+    def power_api(self, resolution: str = 'quarterhour'):
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        # parse start/end (accept str or datetime); timestamps are UTC ms
+        if isinstance(start, str): 
+            start = pd.to_datetime(self.start_date, utc=True)
+        if isinstance(end, str):   
+            end   = pd.to_datetime(self.end_date,   utc=True)
+
+        if end < start: 
+            raise ValueError("end must be >= start")
+        
+        start_ms = int(start.timestamp()*1000)
+        end_ms   = int(end.timestamp()*1000)
+
+        # 1) list chunk timestamps
+        idx = requests.get(f"{base}/{filter_id}/{region}/index_{resolution}.json",
+                        headers=headers, timeout=60, verify=verify).json()
+        stamps = sorted(idx.get("timestamps", []))
+        if not stamps: return pd.DataFrame(columns=["time_utc","value"])
+
+        # 2) choose the chunks that cover [start, end]
+        i = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start
+        i = max(i, 0)
+        selected = [s for s in stamps[i:] if s <= end_ms]
+        if not selected and stamps[i] <= end_ms:
+            selected = [stamps[i]]  # at least include the chunk containing start
+
+        # 3) fetch, merge, dedupe (last value wins)
+        rows = []
+        for ts in selected:
+            j = requests.get(f"{base}/{filter_id}/{region}/{filter_id}_{region}_{resolution}_{ts}.json",
+                            headers=headers, timeout=60, verify=verify).json()
+            rows += j.get("series") or j.get("series2") or []
+        if not rows: return pd.DataFrame(columns=["time_utc","value"]) 
+
+        data = sorted({int(t): v for t, v in rows}.items()) #creates the dict with int(t) as key and v as item, you get everything from rows 
+        df = pd.DataFrame(data, columns=["epoch_ms","value"])
+        df["time_utc"] = pd.to_datetime(df["epoch_ms"], unit="ms", utc=True)
+
+        # 4) precise time window filter
+        m = (df["epoch_ms"] >= start_ms) & (df["epoch_ms"] <= end_ms)
+        return df.loc[m, ["time_utc","value"]].reset_index(drop=True)
