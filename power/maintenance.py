@@ -1,24 +1,33 @@
 # %%
-import os, pandas as pd
-from power.fetch_power.io_s3 import get_fs_and_url, list_paths
+import pandas as pd
+from pathlib import Path
+
+from power.fetch_power.io_s3 import list_paths
 from power.fetch_power.parquet_convert import read_parquet_if_exists, to_parquet_bytes
 from power.fetch_power.io_s3 import write_atomic
 
-BUCKET_URL  = os.environ["BUCKET_URL"]
-REGION_CODE = os.environ.get("REGION_CODE","DE")
-FILTER_ID   = os.environ["FILTER_ID"]
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATA_ROOT = PROJECT_ROOT / "data"
+
+REGION_CODE = "DE"
+FILTER_ID = "4071"
 
 def main():
-    fs, root = get_fs_and_url(BUCKET_URL)
-    prefix = f"{root}/region={REGION_CODE}/filter={FILTER_ID}/"
-    parts = sorted({p.rsplit("/date=",1)[1].split("/",1)[0] for p in list_paths(fs, prefix) if "/date=" in p})
-    # for each date, ensure a single compacted Parquet exists (noop if already single)
+    prefix = DATA_ROOT / f"region={REGION_CODE}" / f"filter={FILTER_ID}"
+    parts = sorted(
+        {
+            p.split("/date=", 1)[1].split("/", 1)[0]
+            for p in list_paths(prefix)
+            if "/date=" in p
+        }
+    )
+
     for day in parts:
-        path = f"{root}/region={REGION_CODE}/filter={FILTER_ID}/date={day}/data.parquet"
-        df = read_parquet_if_exists(fs, path)
-        if df is None or df.empty: continue
-        # rewrite once (snappy) — also a chance to normalize
-        write_atomic(fs, path, to_parquet_bytes(df))
+        path = DATA_ROOT / f"region={REGION_CODE}" / f"filter={FILTER_ID}" / f"date={day}" / "data.parquet"
+        df = read_parquet_if_exists(path)
+        if df is None or df.empty:
+            continue
+        write_atomic(path, to_parquet_bytes(df))
         print(f"compacted {day}")
 
 if __name__ == "__main__":

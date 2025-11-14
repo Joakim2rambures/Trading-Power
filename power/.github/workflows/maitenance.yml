@@ -17,11 +17,4 @@ jobs:
         with: { python-version: "3.12", cache: "pip" }
       - run: pip install -r requirements.txt
       - name: Compact / validate
-        env:
-          BUCKET_URL: ${{ secrets.BUCKET_URL }}
-          FILTER_ID: ${{ secrets.FILTER_ID }}
-          REGION_CODE: DE
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: python maintenance.py
