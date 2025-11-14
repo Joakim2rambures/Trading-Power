@@ -8,9 +8,13 @@ from power.fetch_power.io_s3 import write_atomic
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
+STATE_ROOT = PROJECT_ROOT / "state"
+HWM_PATH = STATE_ROOT / "high_watermark.json"
 
 REGION_CODE = "DE"
 FILTER_ID = "4071"
+RESOLUTION = "quarterhour"
+VERIFY = False
 
 def main():
     prefix = DATA_ROOT / f"region={REGION_CODE}" / f"filter={FILTER_ID}"
