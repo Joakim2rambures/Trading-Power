@@ -26,12 +26,15 @@ def main():
         }
     )
 
+    # parts  keeps only the dates, sorted, from the parquet files 
+
     for day in parts:
         path = DATA_ROOT / f"region={REGION_CODE}" / f"filter={FILTER_ID}" / f"date={day}" / "data.parquet"
         df = read_parquet_if_exists(path)
         if df is None or df.empty:
             continue
-        write_atomic(path, to_parquet_bytes(df))
+        tpb = to_parquet_bytes(df)
+        write_atomic(path,tpb)
         print(f"compacted {day}")
 
 if __name__ == "__main__":

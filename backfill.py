@@ -11,6 +11,8 @@ DATA_ROOT = PROJECT_ROOT / "data"
 STATE_ROOT = PROJECT_ROOT / "state"
 HWM_PATH = STATE_ROOT / "high_watermark.json"
 
+#the four lines above gets the data, state and high_watermark. path + file of interest everytime   
+
 # Hardcode basic config for now
 REGION_CODE = "DE"
 FILTER_ID = "4071"           # later: list of IDs
@@ -22,22 +24,30 @@ def main():
     START = os.environ["START"]
     END = os.environ["END"]
 
-    df = smard_range(
-        filter_id=FILTER_ID,
-        region=REGION_CODE,
-        resolution=RESOLUTION,
-        start=START,
-        end=END,
-        verify=VERIFY,
-    )
-    if df.empty:
-        print("no data returned for backfill window")
-        return
+    filters = FILTER_GROUPS[FILTER_GROUP]
 
-    merge_write_partitions(DATA_ROOT, REGION_CODE, FILTER_ID, df)
+    for filter_id, desc in filters.items():
+        print(f"backfilling filter {filter_id} ({desc})")
+
+        df = smard_range(
+            filter_id=filter_id,
+            region=REGION_CODE,
+            resolution=RESOLUTION,
+            start=START,
+            end=END,
+            verify=VERIFY,
+        )
+
+        if df.empty:
+            print("no data returned for backfill window")
+            return
+        # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
+        merge_write_partitions(DATA_ROOT, REGION_CODE, FILTER_ID, df) 
 
     # set HWM to END floored to last full quarter
-    save_hwm(HWM_PATH, floor_to_quarter(pd.to_datetime(END, utc=True)))
+    ftq = floor_to_quarter(pd.to_datetime(END, utc=True)) # ensure that utc is included, and 
+
+    save_hwm(HWM_PATH, ftq) # save_hwm grabs a python object and turns it into a json file 
     print("backfill done")
 
 if __name__ == "__main__":

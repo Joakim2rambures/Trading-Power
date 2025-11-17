@@ -43,6 +43,7 @@ def main():
         return
 
     touched = merge_write_partitions(DATA_ROOT, REGION_CODE, FILTER_ID, df)
+    # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
     print(f"wrote {len(touched)} partitions")
 
     save_hwm(HWM_PATH, end)

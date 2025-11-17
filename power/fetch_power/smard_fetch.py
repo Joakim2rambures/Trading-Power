@@ -13,19 +13,23 @@ def smard_range(
 ):
     """
     Fetch SMARD time-series into a DataFrame with columns: time_utc, value.
+    SMARD data is pulled from the public SMARD API
+    The varibales are start/end date, region where to pull from, and the filter id : lsit of filter id's is available on the read me file
+    You can have the market prices for all countries in the europe except for the UK.
+    Among the data available there is market prices, energy forecast 
     """
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     headers = {"User-Agent": "Mozilla/5.0"}
 
     # parse start/end (accept str or datetime); timestamps are UTC ms
     if isinstance(start, str):
-        start = pd.to_datetime(start, utc=True)
-    if isinstance(end, str):
-        end = pd.to_datetime(end, utc=True)
+        start = pd.to_datetime(start, utc=True) # if start is a string set start = start 
+    if isinstance(end, str): 
+        end = pd.to_datetime(end, utc=True) # if end is a string set end=end  
     if end < start:
-        raise ValueError("end must be >= start")
+        raise ValueError("end must be >= start") 
 
-    start_ms = int(start.timestamp() * 1000)
+    start_ms = int(start.timestamp() * 1000) # here we transofrm the start and end date to match smard (unix milliseconds)
     end_ms = int(end.timestamp() * 1000)
 
     # 1) list chunk timestamps
@@ -33,16 +37,21 @@ def smard_range(
         f"{base}/{filter_id}/{region}/index_{resolution}.json",
         headers=headers,
         timeout=60,
-        verify=verify,
-    ).json()
-    stamps = sorted(idx.get("timestamps", []))
+        verify=verify
+    ).json() 
+
+    # requests.get() comes form the library requests and will send a request to the API (in this case teh SMARD API) and sends a GET requests (want to get some data)
+    # .json() will grab the data we fetched which grabs the teh JSOn data in the python dict format
+    # this first request only contains the timestamps (whic have the form 175952600000, 17958469983,...)
+
+    stamps = sorted(idx.get("timestamps", [])) #.get() is different from the one above, this one returns the item() corresponding to the key timestamp in a dictionnary (or else if dict empy return [])
     if not stamps:
-        return pd.DataFrame(columns=["time_utc", "value"])
+        return pd.DataFrame(columns=["time_utc", "value"]) 
 
     # 2) choose the chunks that cover [start, end]
-    i = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start
+    i = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start. bisect_right - 1 finds the index where the first data ( = start).if we have the same values multiple times, it pulls the latests one. 
     i = max(i, 0)
-    selected = [s for s in stamps[i:] if s <= end_ms]
+    selected = [s for s in stamps[i:] if s <= end_ms] # : grabs and stores all the dates we want in timestamps until end_date 
     if not selected and stamps[i] <= end_ms:
         selected = [stamps[i]]  # at least include the chunk containing start
 
@@ -55,16 +64,25 @@ def smard_range(
             timeout=60,
             verify=verify,
         ).json()
-        rows += j.get("series") or j.get("series2") or []
+        rows += j.get("series") or j.get("series2") or [] 
+        
+        # Makes a second API request and gets all of the time series data based ont eh timestamps we extracted and transformed in actual time series value before
+        #here each j is the request, series is the key and .get(series) returns the value (in this case tuple made of the timestamp and actual data point)
 
-    if not rows:
-        return pd.DataFrame(columns=["time_utc", "value"])
+    # rows is a list of [timestamp, value]
+    df = pd.DataFrame(rows, columns=["epoch_ms", "value"])
 
-    data = sorted({int(t): v for t, v in rows}.items())
-    df = pd.DataFrame(data, columns=["epoch_ms", "value"])
+    # normalize timestamps to integer ms (like int(t))
+    df["epoch_ms"] = df["epoch_ms"].astype("int64")
+
+    # keep last value for each timestamp, then sort
+    df = df.drop_duplicates(subset="epoch_ms", keep="last")
+    df = df.sort_values("epoch_ms").reset_index(drop=True)
+
+    # add datetime column
     df["time_utc"] = pd.to_datetime(df["epoch_ms"], unit="ms", utc=True)
 
     # 4) precise time window filter
-    m = (df["epoch_ms"] >= start_ms) & (df["epoch_ms"] <= end_ms)
+    m = (df["epoch_ms"] >= start_ms) & (df["epoch_ms"] <= end_ms) #subsets only the period we're interested about 
     return df.loc[m, ["time_utc", "value"]].reset_index(drop=True)
 # %%
