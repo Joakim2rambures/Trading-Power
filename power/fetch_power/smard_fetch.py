@@ -49,22 +49,22 @@ def smard_range(
         return pd.DataFrame(columns=["time_utc", "value"]) 
 
     # 2) choose the chunks that cover [start, end]
-    i = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start. bisect_right - 1 finds the index where the first data ( = start).if we have the same values multiple times, it pulls the latests one. 
-    i = max(i, 0)
-    selected = [s for s in stamps[i:] if s <= end_ms] # : grabs and stores all the dates we want in timestamps until end_date 
-    if not selected and stamps[i] <= end_ms:
-        selected = [stamps[i]]  # at least include the chunk containing start
+    ms_index = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start. bisect_right - 1 finds the index where the first data ( = start).if we have the same values multiple times, it pulls the latests one. 
+    ms_index = max(ms_index, 0)
+    selected = [s for s in stamps[ms_index:] if s <= end_ms] # : grabs and stores all the dates we want in timestamps until end_date 
+    if not selected and stamps[ms_index] <= end_ms:
+        selected = [stamps[ms_index]]  # at least include the chunk containing start
 
     # 3) fetch, merge, dedupe (last value wins)
     rows = []
-    for ts in selected:
-        j = requests.get(
-            f"{base}/{filter_id}/{region}/{filter_id}_{region}_{resolution}_{ts}.json",
+    for time_series in selected:
+        api_request = requests.get(
+            f"{base}/{filter_id}/{region}/{filter_id}_{region}_{resolution}_{time_series}.json",
             headers=headers,
             timeout=60,
             verify=verify,
         ).json()
-        rows += j.get("series") or j.get("series2") or [] 
+        rows += api_request.get("series") or api_request.get("series2") or [] 
         
         # Makes a second API request and gets all of the time series data based ont eh timestamps we extracted and transformed in actual time series value before
         #here each j is the request, series is the key and .get(series) returns the value (in this case tuple made of the timestamp and actual data point)

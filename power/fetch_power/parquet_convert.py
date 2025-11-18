@@ -59,11 +59,11 @@ def merge_write_partitions(root: Path, region: str, filter_id: str, df_new: pd.D
     df_new["date_str"] = pd.to_datetime(df_new["time_utc"], utc=True).dt.strftime("%Y-%m-%d")
 
     for day in day_partitions_for(df_new):
-        p = partition_path(root, region, filter_id, day)
+        data_path = partition_path(root, region, filter_id, day)
         # rows for this day
         df_day = df_new[df_new["date_str"] == day].drop(columns=["date_str"])
 
-        df_old = read_parquet_if_exists(p)
+        df_old = read_parquet_if_exists(data_path)
         if df_old is not None:
             merged = pd.concat([df_old, df_day], ignore_index=True) # merge old dataset and new dataset
         else:
@@ -71,7 +71,7 @@ def merge_write_partitions(root: Path, region: str, filter_id: str, df_new: pd.D
 
         merged = drop_by_ts(merged)
         data_bytes = to_parquet_bytes(merged)
-        write_atomic(p, data_bytes) # this will overwrite the previous dataset with the new dataset and create teh file (thats why we don't need to return anything)
-        touched.append(str(p)) 
+        write_atomic(data_path, data_bytes) # this will overwrite the previous dataset with the new dataset and create teh file (thats why we don't need to return anything)
+        touched.append(str(data_path)) 
     return touched 
 # %%
