@@ -3,36 +3,46 @@ import json
 from pathlib import Path
 import pandas as pd
 
-def load_hwm(path: str | Path):
-    p = Path(path)
-    if not p.exists():
-        return None
-    with open(p, "r") as f: # that opens the file, 'r' precises it to read only. 
-        j = json.load(f) #this loads the json file and converts it to a python object 
-    return pd.Timestamp(j["last_timestamp"], tz="UTC")
+"""""
+this code below is to know what is the current state of the algorithm 
+"""""
 
-def save_hwm(path: str | Path, ts):
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w") as f:
+def load_hwm(path: str | Path):
+    file_path = Path(path)
+    if not file_path.exists():
+        return None
+    with open(file_path, "r") as file_read: # that opens the file, 'r' precises it to read only. 
+        json_load = json.load(file_read) #this loads the json file and converts it to a python object 
+    return pd.Timestamp(json_load["last_timestamp"], tz="UTC")
+
+"""""
+load_hwm read json files. reads the last timestamp that was saved 
+"""""
+
+def save_hwm(path: str | Path, time_series):
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(file_path, "w") as open_file:
         json.dump(
-            {"last_timestamp": pd.Timestamp(ts).tz_convert("UTC").isoformat()},
-            f,
-        ) 
+            {"last_timestamp": pd.Timestamp(time_series).tz_convert("UTC").isoformat()},
+            open_file)
+         
 # json.dump() turns the python object into a json file 
 #converts the data to the timezone you want (in our case UTC, can also be US, Asian...)
 #isoforamt() is used to return the iso format 
 
 """
-save_hwm grabs a python object and turns it into a json file 
+save_hwm grabs a python object and turns it into a json file. It saves the date in high_watermark json to know what was 
+the last date saved
+we don't use it to save parquet files
 """
 
-def ensure_utc(ts):
-    ts = pd.Timestamp(ts)
-    if ts.tzinfo is None:
-        return ts.tz_localize("UTC")
+def ensure_utc(time_series):
+    time_series = pd.Timestamp(time_series)
+    if time_series.tzinfo is None:
+        return time_series.tz_localize("UTC")
     else:
-        return ts.tz_convert("UTC")
+        return time_series.tz_convert("UTC")
     
 # function above make sure that the python obejct you grab is utc aware
 '''
@@ -42,14 +52,15 @@ it’s independent of where the code runs (laptop in London vs server in Frankfu
 we avoid nasty DST / local-time weirdness.
 ''' 
 
-def floor_to_quarter(ts):
-    ts = ensure_utc(ts)
+def floor_to_quarter(time_series):
+    time_series = ensure_utc(time_series)
 
-    m = (ts.minute // 15) * 15 # standardises the minutes 
-    return ts.replace(minute=m, second=0, microsecond=0)
+    m = (time_series.minute // 15) * 15 # standardises the minutes 
+    return time_series.replace(minute=m, second=0, microsecond=0)
 
 '''
-floor to quarter standardises the minutes : such that if the time point is not realeased at at a multiple of 15 (e.g its realted at 4:44, then we get the integer divison for 44/15 = 2 )
+floor to quarter standardises the minutes : such that if the time point is not realeased 
+at at a multiple of 15 (e.g its realted at 4:44, then we get the integer divison for 44/15 = 2 )
 '''
 
 def last_full_quarter(now_utc=None):

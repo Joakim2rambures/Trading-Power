@@ -14,24 +14,27 @@ STATE_ROOT = PROJECT_ROOT / "state"
 HWM_PATH = STATE_ROOT / "high_watermark.json"
 
 REGION_CODE = "DE"
-FILTER_ID = "4071"
 RESOLUTION = "quarterhour"
 VERIFY = False
 
-OVERLAP_HOURS = int(os.environ.get("OVERLAP_HOURS", "4"))
+OVERLAP_HOURS = int(os.environ.get("OVERLAP_HOURS", "2"))
 
 def main(filter_group_name=None):
     now_final = last_full_quarter()  # do not write partial quarters
     hwm = load_hwm(HWM_PATH)
 
+    if hwm is not None and now_final <= hwm:
+        print("no new completed quarter-hour; exiting")
+        return
+
     if hwm is None:
-        start = now_final - pd.Timedelta(hours=24)
+        start = now_final - pd.Timedelta(hours=24) # start date for the API data pull
     else:
         start = hwm - pd.Timedelta(hours=OVERLAP_HOURS)
     end = now_final
 
     if filter_group_name is None:
-        filter_group_name = 'market_price'
+        filter_group_name = os.environ.get("FILTER_GROUP", "market_price")
     
     filters = FILTER_GROUPS[filter_group_name]
     total_touched = 0
@@ -49,11 +52,11 @@ def main(filter_group_name=None):
         )
 
         if df.empty:
-            print(" no rows fetched")
+            print("no rows fetched")
             continue
 
 
-        touched = merge_write_partitions(DATA_ROOT, REGION_CODE, FILTER_ID, df)
+        touched = merge_write_partitions(DATA_ROOT, REGION_CODE, filter_id, df)
     # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
         total_touched += len(touched)
         print(f"  wrote {len(touched)} partitions")
