@@ -5,6 +5,7 @@ import uuid
 
 def write_atomic(dst_path, data_bytes: bytes):
     """
+    we use write_atomic() usually after parquet_to_bytes or whenever you 
     Atomic-ish write to a local file:
     write to tmp, then rename.
     """

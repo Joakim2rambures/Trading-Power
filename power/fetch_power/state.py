@@ -3,6 +3,10 @@ import json
 from pathlib import Path
 import pandas as pd
 
+"""""
+this code below is to know what is the current state of the algorithm 
+"""""
+
 def load_hwm(path: str | Path):
     p = Path(path)
     if not p.exists():
@@ -10,6 +14,10 @@ def load_hwm(path: str | Path):
     with open(p, "r") as f: # that opens the file, 'r' precises it to read only. 
         j = json.load(f) #this loads the json file and converts it to a python object 
     return pd.Timestamp(j["last_timestamp"], tz="UTC")
+
+"""""
+load_hwm read json files. reads the last timestamp that was saved 
+"""""
 
 def save_hwm(path: str | Path, ts):
     p = Path(path)
@@ -24,7 +32,9 @@ def save_hwm(path: str | Path, ts):
 #isoforamt() is used to return the iso format 
 
 """
-save_hwm grabs a python object and turns it into a json file 
+save_hwm grabs a python object and turns it into a json file. It saves the date in high_watermark json to know what was 
+the last date saved
+we don't use it to save parquet files
 """
 
 def ensure_utc(ts):
@@ -49,7 +59,8 @@ def floor_to_quarter(ts):
     return ts.replace(minute=m, second=0, microsecond=0)
 
 '''
-floor to quarter standardises the minutes : such that if the time point is not realeased at at a multiple of 15 (e.g its realted at 4:44, then we get the integer divison for 44/15 = 2 )
+floor to quarter standardises the minutes : such that if the time point is not realeased 
+at at a multiple of 15 (e.g its realted at 4:44, then we get the integer divison for 44/15 = 2 )
 '''
 
 def last_full_quarter(now_utc=None):
