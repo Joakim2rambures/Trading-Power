@@ -23,6 +23,10 @@ def main(filter_group_name=None):
     now_final = last_full_quarter()  # do not write partial quarters
     hwm = load_hwm(HWM_PATH)
 
+    if hwm is not None and now_final <= hwm:
+        print("no new completed quarter-hour; exiting")
+        return
+
     if hwm is None:
         start = now_final - pd.Timedelta(hours=24) # start date for the API data pull
     else:
@@ -48,7 +52,7 @@ def main(filter_group_name=None):
         )
 
         if df.empty:
-            print(" no rows fetched")
+            print("no rows fetched")
             continue
 
 
