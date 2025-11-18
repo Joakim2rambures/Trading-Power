@@ -1,3 +1,4 @@
+# %%
 # power/fetch_power/smard_filters.py
 
 # --- Power generation (Stromerzeugung) ---
@@ -40,3 +41,5 @@ FILTER_GROUPS = {
     "market_price": MARKET_PRICE_FILTER_IDS,
     "forecast": FORECAST_FILTER_IDS,
 }
+
+# %%

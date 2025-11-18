@@ -13,7 +13,7 @@ def partition_path(root: Path, region: str, filter_id: str, day: str) -> Path:
     return root / f"region={region}" / f"filter={filter_id}" / f"date={day}" / "data.parquet"
 # this gives the path you will use to save your parquet.data : hen using the library pathlib, you use / to join the bits : (e.g. Path(file_name)/ 'name_of_the_file')
 
-def dedupe_by_ts(df: pd.DataFrame):
+def drop_by_ts(df: pd.DataFrame):
     out = df.sort_values("time_utc").drop_duplicates(subset=["time_utc"], keep="last")
     return out.sort_values("time_utc").reset_index(drop=True)
 
@@ -53,7 +53,7 @@ def merge_write_partitions(root: Path, region: str, filter_id: str, df_new: pd.D
         else:
             merged = df_day
 
-        merged = dedupe_by_ts(merged)
+        merged = drop_by_ts(merged)
         data_bytes = to_parquet_bytes(merged)
         write_atomic(p, data_bytes) # this will overwrite the previous dataset with the new dataset and create teh file (thats why we don't need to return anything)
         touched.append(str(p)) 

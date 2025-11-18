@@ -5,6 +5,7 @@ from pathlib import Path
 from power.fetch_power.smard_fetch import smard_range
 from power.fetch_power.parquet_convert import merge_write_partitions
 from power.fetch_power.state import save_hwm, floor_to_quarter
+from power.fetch_power.smard_filters import FILTER_GROUPS
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
@@ -15,16 +16,18 @@ HWM_PATH = STATE_ROOT / "high_watermark.json"
 
 # Hardcode basic config for now
 REGION_CODE = "DE"
-FILTER_ID = "4071"           # later: list of IDs
 RESOLUTION = "quarterhour"
 VERIFY = False               # SMARD TLS verify (leave False if corp TLS is weird)
 
-def main():
+def main(filter_group_name = None):
     # START/END still passed from workflow as env (not secrets, just inputs)
     START = os.environ["START"]
     END = os.environ["END"]
+    
+    if filter_group_name is None:
+        filter_group_name = os.environ.get("FILTER_GROUP", "market_price")
 
-    filters = FILTER_GROUPS[FILTER_GROUP]
+    filters = FILTER_GROUPS[filter_group_name]
 
     for filter_id, desc in filters.items():
         print(f"backfilling filter {filter_id} ({desc})")
@@ -40,9 +43,10 @@ def main():
 
         if df.empty:
             print("no data returned for backfill window")
-            return
+            continue
+
         # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
-        merge_write_partitions(DATA_ROOT, REGION_CODE, FILTER_ID, df) 
+        merge_write_partitions(DATA_ROOT, REGION_CODE, filter_id, df) 
 
     # set HWM to END floored to last full quarter
     ftq = floor_to_quarter(pd.to_datetime(END, utc=True)) # ensure that utc is included, and 
@@ -52,3 +56,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+# %%
