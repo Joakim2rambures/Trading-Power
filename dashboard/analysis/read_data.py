@@ -1,10 +1,16 @@
 # %%
 from pathlib import Path
 import pandas as pd
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent #__file__ is the path to the current file, .parent means we're targeting the file before
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from power.fetch_power.io_s3 import list_paths
 from power.fetch_power.smard_filters import FILTER_GROUPS
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent #__file__ is the path to the current file, .parent means we're targeting the file before
 DATA_ROOT = PROJECT_ROOT / "data"
 REGION_CODE = "DE"
 
@@ -58,6 +64,7 @@ for filter_id in filter_ids:
     df = load_filter_history(filter_id)
     all_series[filter_id] = df
     print(filter_id, df.shape)
+
 
 
 # %%
