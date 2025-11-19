@@ -18,9 +18,13 @@ def write_atomic(dst_path, data_bytes: bytes):
 
 def list_paths(prefix):
     """
-    Recursively list files under a given directory prefix.
+    Recursively list files under a given directory prefix (including all the files in the subfolders : so any file in this folder (including files in subfolders will eb returned))
+    contrary to .glob() which will only return files in a given folder (and not seek files in the subfolders)
     """
     prefix_path = Path(prefix) #Path(prefix) returns path as a valid window Path (but it will not create a prefix file/verify if prefix exists)
     if not prefix_path.exists(): 
         return []
-    return [str(p) for p in prefix_path.rglob("*") if p.is_file()] # returns the list fo files in prefix_path as strings
+    return [str(p) for p in prefix_path.rglob("*") if p.is_file()] 
+
+
+# %%

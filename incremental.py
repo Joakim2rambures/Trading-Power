@@ -4,7 +4,7 @@ import os, pandas as pd
 from pathlib import Path
 
 from power.fetch_power.smard_fetch import smard_range
-from power.fetch_power.parquet_convert import merge_write_partitions
+from power.fetch_power.parquet_convert import merge_incoming_data
 from power.fetch_power.state import load_hwm, save_hwm, last_full_quarter
 from power.fetch_power.smard_filters import FILTER_GROUPS
 
@@ -56,7 +56,7 @@ def main(filter_group_name=None):
             continue
 
 
-        touched = merge_write_partitions(DATA_ROOT, REGION_CODE, filter_id, df)
+        touched = merge_incoming_data(DATA_ROOT, REGION_CODE, filter_id, df)
     # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
         total_touched += len(touched)
         print(f"  wrote {len(touched)} partitions")
