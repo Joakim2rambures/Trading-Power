@@ -19,9 +19,8 @@ POWER_GENERATION_FILTER_IDS = {
 
 # --- Market prices (Marktpreis) ---
 MARKET_PRICE_FILTER_IDS = {
-    "4169": "Market price: DE/LU",
+    "4169": "Market price: DE",
     "4996": "Market price: Belgium",
-    "4170": "Market price: Austria",
     "256":  "Market price: Netherlands",
 }
 
@@ -35,11 +34,17 @@ FORECAST_FILTER_IDS = {
     "122":  "Total generation (forecast)",
 }
 
+CONS_FILTER_IDS = {
+    '410' : 'Power consumption: Total (grid load)',
+    '4359' : 'Power consumption: Residual load',
+}
+
 # Optional: mapping by group name, to make it easy to select
 FILTER_GROUPS = {
     "generation": POWER_GENERATION_FILTER_IDS,
     "market_price": MARKET_PRICE_FILTER_IDS,
     "forecast": FORECAST_FILTER_IDS,
+    'consumption' : CONS_FILTER_IDS
 }
 
 # %%

@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import sys 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent #__file__ is the path to the current file, .parent means we're targeting the file before
+PROJECT_ROOT = Path(__file__).resolve().parent.parent #__file__ is the path to the current file, .parent means we're targeting the file before
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -14,8 +14,10 @@ from power.fetch_power.smard_filters import FILTER_GROUPS
 DATA_ROOT = PROJECT_ROOT / "data"
 REGION_CODE = "DE"
 
-def load_filter_history(filter_id: str) -> pd.DataFrame:
+def load_filter_history(filter_id: str, region: str = 'DE', root = PROJECT_ROOT) -> pd.DataFrame:
     """Load all daily Parquet files for one filter_id into a single DataFrame."""
+    DATA_ROOT =  root / "data"
+    REGION_CODE = region
     prefix = DATA_ROOT / f"region={REGION_CODE}" / f"filter={filter_id}"
 
     # list_paths(prefix) returns all paths under that prefix (as strings)
@@ -49,14 +51,3 @@ def load_filter_history(filter_id: str) -> pd.DataFrame:
 
     return merged
 
-# example: loop over a whole group and build a dict of DataFrames
-filter_ids = FILTER_GROUPS["market_price"].keys()
-
-all_series = {}
-for filter_id in filter_ids:
-    df = load_filter_history(filter_id)
-    all_series[filter_id] = df
-    print(filter_id, df.shape)
-
-all_series
-# %%
