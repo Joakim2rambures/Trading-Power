@@ -43,6 +43,7 @@ def load_filter_history(filter_id: str) -> pd.DataFrame:
     # - dedupe by time_utc
     # - sort by time_utc
     # - set as index if you like time-series operations
+    # all of the above is included in the function droop_by_timecol
     if "time_utc" in merged.columns:
         merged = drop_by_timecol(merged)
 
@@ -51,10 +52,11 @@ def load_filter_history(filter_id: str) -> pd.DataFrame:
 # example: loop over a whole group and build a dict of DataFrames
 filter_ids = FILTER_GROUPS["market_price"].keys()
 
-#all_series = {}
-#for filter_id in filter_ids:
-#    df = load_filter_history(filter_id)
-#    all_series[filter_id] = df
-#    print(filter_id, df.shape)
-PROJECT_ROOT
+all_series = {}
+for filter_id in filter_ids:
+    df = load_filter_history(filter_id)
+    all_series[filter_id] = df
+    print(filter_id, df.shape)
+
+all_series
 # %%

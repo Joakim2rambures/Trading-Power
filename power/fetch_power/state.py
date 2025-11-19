@@ -5,6 +5,7 @@ import pandas as pd
 
 """""
 this code below is to know what is the current state of the algorithm 
+It's used by the workflows to understand the current state of teh algorithm
 """""
 
 def load_hwm(path: str | Path):
