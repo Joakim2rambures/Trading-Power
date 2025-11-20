@@ -21,6 +21,9 @@ from analysis.market_price import (
 
 all_series = load_market_price_series()
 prices = series_to_long(all_series)
+ret = add_returns(prices)
+flt7d = filter_by_window(ret, '7D')
+compute_return_stats(flt7d)
 
 
 # %%
