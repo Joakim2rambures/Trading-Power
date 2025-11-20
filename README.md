@@ -58,3 +58,104 @@ Goal : exploratory analysis + visual monitoring of: Market prices by country Pow
 8. Tab 5 – Weather & Forecasting (Later Extension) When weather data is added (wind speed, temperature, irradiance): Weather Maps / heatmaps Wind speed over Germany / Europe Temperature maps by region Weather vs generation Scatter: wind speed vs wind generation Scatter: irradiance proxy vs PV generation Weather vs price Scatter: temperature vs load / price Heatmap: price as function of wind share and demand Forecasting models Start simple with baseline models: Naive: Forecast = last value Seasonal naive: Forecast = same time yesterday / last week Then extend to: ARIMA / SARIMA Prophet Simple tree or gradient boosting model on: Lagged prices Load Wind / solar Hour-of-day, weekday, etc. Model visualizations Backtest chart Actual vs predicted over last X days Shaded error band (e.g. ±1 or ±2σ) Error metric cards MAE, RMSE, MAPE Hit rate on sign of returns (directional accuracy) Feature relationship plots Price vs wind share Price vs residual load Partial dependence–style views
 
 9. UX / Interaction Ideas Controls / filters Date range selector Dropdowns: Country / bidding zone Technology (wind, solar, gas, etc.) Forecast type (intraday, day-ahead, etc.) Toggle: Raw vs normalized (z-scores, per-MWh, per capacity) Download options Export current view / filtered data as CSV or Parquet Tooltips / hover info On chart hover, show: Timestamp Price Generation mix Forecast error (where relevant)
+
+1. High-level architecture (how your pieces fit together)
+a) Raw data ingestion
+Backfill (power/fetch_power/incremental.py – actually backfill)
+Purpose: big historical load.
+For each filter_id in FILTER_GROUPS[filter_group_name]:
+Calls smard_range(start, end_ts, ...).
+Merges new data into daily parquet files using merge_incoming_data(...).
+Updates high_watermark.json via save_hwm_map with per-filter end timestamp.
+
+Path layout:
+data/region=DE/filter=<filter_id>/date=<YYYY-MM-DD>/data.parquet
+Incremental (incremental.py – the earlier one)
+
+Purpose: periodic “top-up” of recent data.
+Uses last_full_quarter() and load_hwm_map() to know where to resume.
+Overlaps by OVERLAP_HOURS (default 2h) to avoid gaps.
+
+For each filter:
+Calls smard_range on [start, end].
+Uses merge_incoming_data to append + dedupe by time_utc.
+If anything was written, updates global HWM (currently via save_hwm(hwm_path, end)).
+Storage details
+
+merge_incoming_data:
+Splits incoming rows by day via date_str.
+Reads existing data.parquet (if present).
+Concats old+new → drop_by_timecol to dedupe & sort by time_utc.
+Writes back atomically via write_atomic.
+
+State (state.py)
+high_watermark.json = per-filter map: { "4169": "...", "256": "...", ... }.
+stats_high_watermark.json = single timestamp { "last_timestamp": ... }.
+ensure_utc, floor_to_quarter, last_full_quarter keep everything UTC & on 15-min grid.
+
+Maintenance (maintenance.py)
+Iterates over all daily parquet files for each filter and “compacts” them (read & rewrite) using to_parquet_bytes + write_atomic (good for cleaning up fragmentation, compression, etc.).
+
+b) Analysis & stats
+Read raw history (read_data.py)
+
+load_filter_history(filter_id, root=PROJECT_ROOT):
+Lists data/region=DE/filter=<id>/date=YYYY-MM-DD/... using list_paths.
+Reads each day, concats, then drop_by_timecol for clean time series.
+
+Market price analysis (analysis/market_price.py)
+FILTER_GROUPS["market_price"] = DE / NL / BE market price filters.
+load_market_price_series() → dict {filter_id: df}.
+series_to_long(all_series) → long df with columns: time, zone, price.
+
+FILTER_ID_TO_COUNTRY maps filter IDs to zone labels.
+add_returns adds per-zone % returns.
+
+filter_by_window implements your windows (1D, 3D, 7D, 30D, 1Y, max).
+compute_return_stats → per-zone stats: mean, std, skew.
+compute_spreads → spreads vs reference zone.
+compute_multi_window_stats:
+
+For each window: filter, compute return stats, tag with window + as_of.
+Returns stacked long df: zone, window, as_of, mean, std, skew.
+Stats generation
+Backfill stats (stats_backfill.py)
+Loads all prices up to some end_ts (from env or data HWM).
+
+Computes “slow” window stats (SLOW_WINDOWS = [7D, 30D, 1Y]).
+Writes only those stats to data/stats/market_price_stats.parquet.
+Sets stats_high_watermark.json to end_ts.
+
+Incremental stats (stats_incremental.py)
+Looks at high_watermark.json → gets minimal per-filter HWM → data_hwm.
+Compares with stats_high_watermark.json.
+If data_hwm > stats_hwm, loads prices up to data_hwm.
+Computes “fast” window stats (FAST_WINDOWS = ["1D", "3D"]).
+Writes only those stats to the same market_price_stats.parquet (overwriting).
+Updates stats_high_watermark.json.
+
+Stats maintenance (stats_maintenance.py)
+Reads stats parquet and rewrites it (compaction).
+
+c) Dashboard (dashboard.py)
+Uses Streamlit.
+
+get_market_price_df():
+Loads all market price series, converts to long, adds returns.
+
+Cached with @st.cache_data(ttl=300).
+load_precomputed_stats():
+
+Reads data/stats/market_price_stats.parquet if present.
+
+UI:
+Sidebar:
+Time window (1D, 3D, 7D, 30D, 1Y, max) → used to filter data.
+Zones multiselect.
+Reference zone for spreads.
+
+Main:
+Line chart of prices.
+Line chart of returns.
+Line chart of spreads vs reference zone.
+Stats table (from precomputed stats) filtered by window & zones.
