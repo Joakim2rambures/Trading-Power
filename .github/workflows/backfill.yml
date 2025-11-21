@@ -3,6 +3,9 @@ name: Backfill SMARD
 on:
   workflow_dispatch:
     inputs:
+      filter_group:
+        description: filter
+        required: true
       start:
         description: ISO start (UTC)
         required: true
