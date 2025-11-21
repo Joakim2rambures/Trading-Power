@@ -50,7 +50,8 @@ def smard_range(
         return pd.DataFrame(columns=["time_utc", "value"]) 
 
     # 2) choose the chunks that cover [start, end]
-    ms_index = bisect.bisect_right(stamps, start_ms) - 1  # last stamp <= start. bisect_right - 1 finds the index where the first data ( = start).if we have the same values multiple times, it pulls the latests one. 
+    ms_index = bisect.bisect_right(stamps, start_ms) - 1  
+    # last stamp <= start. bisect_right - 1 finds the index where the first data ( = start).if we have the same values multiple times, it pulls the latests one. 
     ms_index = max(ms_index, 0)
     selected = [s for s in stamps[ms_index:] if s <= end_ms] # : grabs and stores all the dates we want in timestamps until end_date 
     if not selected and stamps[ms_index] <= end_ms:

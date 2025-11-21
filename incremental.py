@@ -48,7 +48,8 @@ def main(filter_group_name=None, resolution:str = RESOLUTION, region_code: str =
         if hwm is None:
             start = now_final - pd.Timedelta(hours=24) # start date for the API data pull
         else:
-            start = hwm - pd.Timedelta(hours=overlap_hours) # this will grab the lastest timestamp (minus 2 hours for safety reasons/in case data was missed) and set it as start 
+            start = hwm - pd.Timedelta(hours=overlap_hours) 
+            # this will grab the lastest timestamp (minus 2 hours for safety reasons/in case data was missed) and set it as start 
         
         end = now_final
 
@@ -75,9 +76,14 @@ def main(filter_group_name=None, resolution:str = RESOLUTION, region_code: str =
         total_touched += len(touched)
         print(f"  wrote {len(touched)} partitions")
 
+                # update per-filter HWM if we wrote something
+        if touched:
+            hwm_map[key] = end
+            print(f"  HWM[{key}] -> {end.isoformat()}")
+
     # Only update HWM if at least one filter wrote something (optional)
     if total_touched > 0:
-        save_hwm_map(hmw_path, end)
+        save_hwm_map(hmw_path, hwm_map)
         print(f"HWM -> {end.isoformat()}")
     else:
         print("no partitions written; HWM unchanged")
