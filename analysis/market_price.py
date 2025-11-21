@@ -1,16 +1,16 @@
-#market_price.py
+# analysis/market_price.py
 # %%
 
-import pandas as pd 
-from pathlib import Path 
-import sys 
+import pandas as pd
+from pathlib import Path
+import sys
 import numpy as np
-PROJECT_ROOT = Path(__file__).resolve().parent.parent #TRADING-POWER/ 
-if str(PROJECT_ROOT) not in sys.path: 
-    sys.path.insert(0, str(PROJECT_ROOT)) 
 
-from analysis.read_data import load_filter_history 
-from power.fetch_power.smard_filters import FILTER_GROUPS
+PROJECT_ROOT = Path(__file__).resolve().parent.parent  # TRADING-POWER/
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from analysis.group_series import load_group_long  # generic loader for SMARD groups
 
 # Time windows for your dashboard
 WINDOWS = {
@@ -24,70 +24,57 @@ WINDOWS = {
 }
 
 
-def load_market_price_series(filter_group_name: str = "market_price",
-                             root: Path = PROJECT_ROOT) -> dict:
+def load_prices_with_returns(
+    filter_group_name: str = "market_price",
+    root: Path = PROJECT_ROOT,
+) -> pd.DataFrame:
     """
-    Load all SMARD market price series into a dict of DataFrames.
-    Keys are filter_ids from FILTER_GROUPS[filter_group_name].
+    Load all market price data for a group and add returns.
+    Returns a long DataFrame with columns:
+        time (UTC),
+        zone (e.g. 'DE', 'NL', 'BE'),
+        price,
+        return.
     """
-    filters = FILTER_GROUPS[filter_group_name]
-    all_series = {}
-    for filter_id in filters.keys():
-        df = load_filter_history(filter_id, root=root)
-        all_series[filter_id] = df
-    return all_series
+    df = load_group_long(filter_group_name, root=root)
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["time", "zone", "price", "return"])
 
+    df = df.copy()
+    df["time"] = pd.to_datetime(df["time"], utc=True)
 
-def series_to_long(all_series: dict) -> pd.DataFrame:
-    """
-    Convert dict of DataFrames {filter_id: df} into a long DataFrame with:
-        time, zone, price
+    # Map label -> compact zone code
+    label_to_zone = {
+        "Market price: DE": "DE",
+        "Market price: Belgium": "BE",
+        "Market price: Netherlands": "NL",
+    }
 
-    Assumes each df has 'time_utc' and 'value' columns.
+    df["zone"] = df["series"].map(label_to_zone).fillna(df["series"])
+    df = df.rename(columns={"value": "price"})
+    df = df[["time", "zone", "price"]].sort_values(["zone", "time"])
 
-    """
+    # Add returns per zone
+    df["return"] = (
+        df.sort_values(["zone", "time"])
+          .groupby("zone")["price"]
+          .pct_change()
+    )
 
-    FILTER_ID_TO_COUNTRY = {
-    "4169": "DE",
-    "256": "NL",
-    "4996": "BE",
-}
-    frames = []
-
-    for filter_id, df in all_series.items():
-        if df is None or df.empty:
-            continue
-
-        tmp = df.copy()
-        # Ensure datetime
-        tmp = tmp.rename(columns={"time_utc": "time"})
-
-        # Use filter_id as "zone" label for now (DE, AT, BE, etc, or SMARD id)
-        zone_label = FILTER_ID_TO_COUNTRY.get(filter_id, str(filter_id))
-        tmp["zone"] = zone_label
-
-        # Standardise price column name
-        if "value" in tmp.columns:
-            tmp = tmp.rename(columns={"value": "price"})
-
-        frames.append(tmp[[ "zone", "time", "price"]])
-
-    if not frames:
-        return pd.DataFrame(columns=["time", "zone", "price"])
-
-    out = pd.concat(frames, axis = 0, ignore_index=True )
-    out = out.sort_values(["zone", "time"])
-    return out
+    return df
 
 
 def add_returns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add simple percentage returns per zone:
         return_t = price_t / price_{t-1} - 1
+
+    Useful if you have a price df without 'return'.
     """
     df = df.sort_values(["zone", "time"]).copy()
     df["return"] = df.groupby("zone")["price"].pct_change()
     return df
+
 
 def filter_by_window(df: pd.DataFrame, window_key: str) -> pd.DataFrame:
     """
@@ -106,10 +93,11 @@ def filter_by_window(df: pd.DataFrame, window_key: str) -> pd.DataFrame:
     start = end - pd.Timedelta(WINDOWS[window_key])
     return df[df["time"].between(start, end)]
 
+
 def compute_return_stats(df: pd.DataFrame) -> pd.DataFrame:
     """
     Summary stats of returns per zone over the current window.
-    Returns DataFrame indexed by zone with columns: mean, std, skew, kurt.
+    Returns DataFrame indexed by zone with columns: mean, std, skew.
     """
     if "return" not in df.columns:
         raise ValueError("DataFrame must contain a 'return' column.")
@@ -154,25 +142,6 @@ def compute_spreads(df: pd.DataFrame, ref_zone: str) -> pd.DataFrame:
     return spreads_long
 
 
-def load_prices_with_returns(
-    filter_group_name: str = "market_price",
-    root: Path = PROJECT_ROOT,
-) -> pd.DataFrame:
-    """
-    Convenience: load all market price data for a group and add returns.
-    Returns a long DataFrame with columns at least: time, zone, price, return.
-    """
-    all_series = load_market_price_series(filter_group_name=filter_group_name,
-                                          root=root)
-    prices = series_to_long(all_series)
-    if prices.empty:
-        return prices
-
-    prices["time"] = pd.to_datetime(prices["time"], utc=True)
-    prices = add_returns(prices)
-    return prices
-
-
 def compute_multi_window_stats(
     prices: pd.DataFrame,
     windows: list[str],
@@ -180,7 +149,7 @@ def compute_multi_window_stats(
     """
     Compute return stats for multiple windows.
     Returns a long DataFrame with columns:
-        zone, window, as_of, mean, std, skew, kurt
+        zone, window, as_of, mean, std, skew
     """
     if prices.empty:
         return pd.DataFrame(
@@ -210,6 +179,7 @@ def compute_multi_window_stats(
         )
 
     return pd.concat(frames, ignore_index=True)
+
 
 def add_rolling_volatility(
     df: pd.DataFrame,
