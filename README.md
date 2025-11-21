@@ -59,6 +59,7 @@ Goal : exploratory analysis + visual monitoring of: Market prices by country Pow
 
 9. UX / Interaction Ideas Controls / filters Date range selector Dropdowns: Country / bidding zone Technology (wind, solar, gas, etc.) Forecast type (intraday, day-ahead, etc.) Toggle: Raw vs normalized (z-scores, per-MWh, per capacity) Download options Export current view / filtered data as CSV or Parquet Tooltips / hover info On chart hover, show: Timestamp Price Generation mix Forecast error (where relevant)
 
+Dashboard Organisation 
 1. High-level architecture (how your pieces fit together)
 a) Raw data ingestion
 Backfill (power/fetch_power/incremental.py – actually backfill)
@@ -159,3 +160,14 @@ Line chart of prices.
 Line chart of returns.
 Line chart of spreads vs reference zone.
 Stats table (from precomputed stats) filtered by window & zones.
+
+
+BASH Commands: 
+
+a) 
+$env:START = "2020-01-01T00:00:00Z"
+$env:END = "2025-11-20T23:45:00Z" 
+$env:FILTER_GROUP = "generation"
+py backfill.py
+
+You're backfilling for the data. These commands are the result of the code at the end of the page where it starts with if __name___ = '__main__'
