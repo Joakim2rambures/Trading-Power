@@ -67,6 +67,6 @@ if __name__ == "__main__":
     import os
     start = os.environ["START"]
     end = os.environ["END"]
-    filter_group_name = os.environ.get("FILTER_GROUP")
+    filter_group_name = os.environ.get("FILTER_GROUP", "market_price")
     main(start, end, filter_group_name)
 # %%

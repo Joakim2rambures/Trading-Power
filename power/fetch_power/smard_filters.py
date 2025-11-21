@@ -41,11 +41,6 @@ FORECAST_FILTER_IDS = {
     "122":  "Total generation (forecast)",
 }
 
-CONS_FILTER_IDS = {
-    '410' : 'Power consumption: Total (grid load)',
-    '4359' : 'Power consumption: Residual load',
-}
-
 # Optional: mapping by group name, to make it easy to select
 FILTER_GROUPS = {
     "generation": POWER_GENERATION_FILTER_IDS,
