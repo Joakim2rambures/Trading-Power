@@ -1,3 +1,4 @@
+#state.py
 # %%
 import json
 from pathlib import Path
@@ -7,6 +8,43 @@ import pandas as pd
 this code below is to know what is the current state of the algorithm 
 It's used by the workflows to understand the current state of teh algorithm
 """""
+
+def load_hwm_map(path: str | Path) -> dict[str, pd.Timestamp]:
+    """
+    Load per-filter high watermarks from JSON.
+    Returns a dict: { filter_id_str: Timestamp(UTC), ... }.
+    If file does not exist, returns {}.
+    Also handles old single-HWM format for easy migration.
+    """
+    file_path = Path(path)
+    if not file_path.exists():
+        return {}
+
+    with open(file_path, "r") as f:
+        data = json.load(f)
+
+    # New format: { "4169": "...", "4170": "...", ... }
+    hwm_map = {  
+        str(key) : pd.Timestamp(ts_str, tz="UTC") for key, ts_str in data.items()
+               }
+
+    return hwm_map
+
+
+def save_hwm_map(path: str | Path, hwm_map: dict[str, pd.Timestamp]) -> None:
+    """
+    Save per-filter high watermarks as JSON: { filter_id_str: ISO8601_UTC, ... }.
+    """
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    serializable = {
+        str(fid): pd.Timestamp(ts).tz_convert("UTC").isoformat() for fid, ts in hwm_map.items()
+    }
+
+    with open(file_path, "w") as f:
+        json.dump(serializable, f)
+
 
 def load_hwm(path: str | Path):
     file_path = Path(path)

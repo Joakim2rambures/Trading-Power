@@ -1,3 +1,4 @@
+# maintenance.py
 # %%
 import pandas as pd
 from pathlib import Path
@@ -28,9 +29,9 @@ def main(filter_group_name=None):
         prefix = DATA_ROOT / f"region={REGION_CODE}" / f"filter={filter_id}"
         parts = sorted(
             {
-                p.split("/date=", 1)[1].split("/", 1)[0]
+                p.split("date=", 1)[1].split("/", 1)[0]
                 for p in list_paths(prefix)
-                if "/date=" in p
+                if "date=" in p
             }
         )
 

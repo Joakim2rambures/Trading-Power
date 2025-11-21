@@ -1,3 +1,4 @@
+#parquet_convert.py
 # %%
 import io, pandas as pd
 from datetime import datetime, timezone
@@ -27,12 +28,8 @@ read_parquet_if_exists() read parquet files if file exists
 """
 
 def to_parquet_bytes(df: pd.DataFrame) -> bytes:
-    cols = ["time_utc", "value"]
-    for c in cols:
-        if c not in df.columns:
-            raise ValueError(f"missing column {c}")
     sink = io.BytesIO() # calls io.Bytes : used to turn a file from ... to bytes, such that instead of the file being stored on the memory, it will be stored on the ram (making the compute faster)
-    df[cols].to_parquet(sink, compression="snappy", engine='pyarrow') 
+    df.to_parquet(sink, compression="snappy", engine='pyarrow') 
     return sink.getvalue()
 
 """""
