@@ -3,7 +3,7 @@ import os, pandas as pd
 from pathlib import Path
 
 from power.fetch_power.smard_fetch import smard_range
-from power.fetch_power.parquet_convert import merge_write_partitions
+from power.fetch_power.parquet_convert import merge_incoming_data
 from power.fetch_power.state import save_hwm, floor_to_quarter
 from power.fetch_power.smard_filters import FILTER_GROUPS
 
@@ -19,10 +19,11 @@ REGION_CODE = "DE"
 RESOLUTION = "quarterhour"
 VERIFY = False               # SMARD TLS verify (leave False if corp TLS is weird)
 
-def main(filter_group_name = None):
-    # START/END still passed from workflow as env (not secrets, just inputs)
-    START = os.environ["START"]
-    END = os.environ["END"]
+def main(start, end, filter_group_name = None, resolution:str = RESOLUTION):
+
+    REGION_CODE = "DE"
+    RESOLUTION = "quarterhour"
+    VERIFY = False    
     
     if filter_group_name is None:
         filter_group_name = os.environ.get("FILTER_GROUP", "market_price")
@@ -36,8 +37,8 @@ def main(filter_group_name = None):
             filter_id=filter_id,
             region=REGION_CODE,
             resolution=RESOLUTION,
-            start=START,
-            end=END,
+            start=start,
+            end=end,
             verify=VERIFY,
         )
 
@@ -46,14 +47,18 @@ def main(filter_group_name = None):
             continue
 
         # merge_write_partitions = Merge df_new into existing daily Parquet files under root, dedupe by time_utc.
-        merge_write_partitions(DATA_ROOT, REGION_CODE, filter_id, df) 
+        merge_incoming_data(DATA_ROOT, REGION_CODE, filter_id, df) 
 
     # set HWM to END floored to last full quarter
-    ftq = floor_to_quarter(pd.to_datetime(END, utc=True)) # ensure that utc is included, and 
+    ftq = floor_to_quarter(pd.to_datetime(end, utc=True)) # ensure that utc is included, and 
 
     save_hwm(HWM_PATH, ftq) # save_hwm grabs a python object and turns it into a json file 
     print("backfill done")
 
 if __name__ == "__main__":
-    main()
+    import os
+    start = os.environ["START"]
+    end = os.environ["END"]
+    filter_group_name = os.environ.get("FILTER_GROUP", "market_price")
+    main(start, end, filter_group_name)
 # %%
