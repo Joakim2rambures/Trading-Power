@@ -24,6 +24,13 @@ MARKET_PRICE_FILTER_IDS = {
     "256":  "Market price: Netherlands",
 }
 
+CONS_FILTER_IDS = {
+    "410":  "Power consumption: Total (grid load)",
+    "4359": "Power consumption: Residual load",
+    "4387": "Power consumption: Pumped storage",  # NEW
+}
+
+
 # --- Forecast generation (Prognostizierte Erzeugung) ---
 FORECAST_FILTER_IDS = {
     "3791": "Offshore wind (forecast)",
